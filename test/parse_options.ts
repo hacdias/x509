@@ -88,6 +88,19 @@ describe("parse options (berOptions)", () => {
       // sanity: default import works
       expect(new x509.X509Certificates(cms).length).toBe(1);
     });
+
+    it("keeps the collection and the options of the last successful import()", () => {
+      const cms = new x509.X509Certificates([new x509.X509Certificate(certPem)]).export("raw");
+      const certs = new x509.X509Certificates(cms);
+      const asn = certs.toString("asn");
+
+      expect(() => certs.import(cms, { berOptions: { maxDepth: 1 } })).toThrow(/depth/i);
+
+      expect(certs).toHaveLength(1);
+      expect(certs[0].serialNumber).toBe(new x509.X509Certificate(certPem).serialNumber);
+      // the failed import must not have replaced the stored parse options
+      expect(certs.toString("asn")).toBe(asn);
+    });
   });
 
   describe("X509Crl", () => {

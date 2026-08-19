@@ -108,7 +108,6 @@ export class X509Certificates extends Array<X509Certificate> implements TextObje
    * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
   public import(data: AsnEncodedType, options?: ParseOptions) {
-    this.#options = options;
     const raw = PemData.toArrayBuffer(data);
     const cms = AsnConvert.parse(raw, asn1Cms.ContentInfo, options);
     if (cms.contentType !== asn1Cms.id_signedData) {
@@ -116,13 +115,20 @@ export class X509Certificates extends Array<X509Certificate> implements TextObje
     }
 
     const signedData = AsnConvert.parse(cms.content, asn1Cms.SignedData, options);
-    this.clear();
-
+    const certificates: X509Certificate[] = [];
     for (const item of signedData.certificates || []) {
       if (item.certificate) {
-        this.push(new X509Certificate(item.certificate, options));
+        certificates.push(new X509Certificate(item.certificate, options));
       }
     }
+
+    // Replace the collection only once everything has been parsed, so a failed
+    // import leaves the current certificates and parse options untouched
+    this.clear();
+    for (const certificate of certificates) {
+      this.push(certificate);
+    }
+    this.#options = options;
   }
 
   /**
