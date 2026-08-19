@@ -2,11 +2,11 @@ import { AsnConvert } from "@peculiar/asn1-schema";
 import {
   CRLReason, id_ce_cRLReasons, id_ce_invalidityDate, InvalidityDate, RevokedCertificate, Time,
 } from "@peculiar/asn1-x509";
-import { BufferSourceConverter, Convert } from "pvtsutils";
+import { BufferSourceConverter } from "pvtsutils";
 import { Extension } from "./extension";
 import { ExtensionFactory } from "./extensions/extension_factory";
 import { AsnData } from "./asn_data";
-import { generateCertificateSerialNumber } from "./utils";
+import { getCertificateSerialNumber, normalizeCertificateSerialNumber } from "./utils";
 
 /**
  * Reason Code
@@ -60,7 +60,7 @@ export class X509CrlEntry extends AsnData<RevokedCertificate> {
    */
   public get serialNumber(): string {
     if (!this.#serialNumber) {
-      this.#serialNumber = Convert.ToHex(this.asn.userCertificate);
+      this.#serialNumber = getCertificateSerialNumber(this.asn.userCertificate);
     }
 
     return this.#serialNumber;
@@ -159,7 +159,7 @@ export class X509CrlEntry extends AsnData<RevokedCertificate> {
       raw = BufferSourceConverter.toArrayBuffer(args[0]);
     } else if (typeof args[0] === "string") {
       raw = AsnConvert.serialize(new RevokedCertificate({
-        userCertificate: generateCertificateSerialNumber(args[0]),
+        userCertificate: normalizeCertificateSerialNumber(args[0]),
         revocationDate: new Time(args[1]),
         crlEntryExtensions: args[2],
       }));
