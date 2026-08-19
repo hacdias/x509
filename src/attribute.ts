@@ -3,6 +3,7 @@ import { Attribute as AsnAttribute } from "@peculiar/asn1-x509";
 import { BufferSourceConverter } from "pvtsutils";
 import { AsnData } from "./asn_data";
 import { OidSerializer, TextObject } from "./text_converter";
+import { ParseOptions } from "./types";
 
 /**
  * Represents the Attribute structure
@@ -29,12 +30,15 @@ export class Attribute extends AsnData<AsnAttribute> {
   /**
    * Crates a new instance from DER encoded buffer
    * @param raw DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(raw: BufferSource);
+  public constructor(raw: BufferSource, options?: ParseOptions);
   public constructor(...args: any[]) {
     let raw: ArrayBuffer;
+    let options: ParseOptions | undefined;
     if (BufferSourceConverter.isBufferSource(args[0])) {
       raw = BufferSourceConverter.toArrayBuffer(args[0]);
+      options = args[1];
     } else {
       const type = args[0];
       const values = Array.isArray(args[1])
@@ -45,7 +49,7 @@ export class Attribute extends AsnData<AsnAttribute> {
       }));
     }
 
-    super(raw, AsnAttribute);
+    super(raw, AsnAttribute, options);
   }
 
   protected onInit(asn: AsnAttribute): void {

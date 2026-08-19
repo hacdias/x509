@@ -7,6 +7,7 @@ import { Extension } from "./extension";
 import { ExtensionFactory } from "./extensions/extension_factory";
 import { AsnData } from "./asn_data";
 import { generateCertificateSerialNumber } from "./utils";
+import { ParseOptions } from "./types";
 
 /**
  * Reason Code
@@ -112,18 +113,20 @@ export class X509CrlEntry extends AsnData<RevokedCertificate> {
       this.#extensions = [];
       if (this.asn.crlEntryExtensions) {
         this.#extensions = this.asn.crlEntryExtensions.map((o) => {
-          const extension = ExtensionFactory.create(AsnConvert.serialize(o));
+          const extension = ExtensionFactory.create(AsnConvert.serialize(o), this.parseOptions);
 
           switch (extension.type) {
             case id_ce_cRLReasons:
               if (this.#reason === undefined) {
                 this.#reason = AsnConvert
-                  .parse(extension.value, CRLReason).reason as unknown as X509CrlReason;
+                  .parse(extension.value, CRLReason, this.parseOptions)
+                  .reason as unknown as X509CrlReason;
               }
               break;
             case id_ce_invalidityDate:
               if (this.#invalidity === undefined) {
-                this.#invalidity = AsnConvert.parse(extension.value, InvalidityDate).value;
+                this.#invalidity = AsnConvert
+                  .parse(extension.value, InvalidityDate, this.parseOptions).value;
               }
               break;
           }
@@ -139,13 +142,15 @@ export class X509CrlEntry extends AsnData<RevokedCertificate> {
   /**
    * Creates a new instance from DER encoded Buffer
    * @param raw DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(raw: BufferSource);
+  public constructor(raw: BufferSource, options?: ParseOptions);
   /**
    * Creates a new instance from ASN.1 object
    * @param asn ASN.1 object
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(asn: RevokedCertificate);
+  public constructor(asn: RevokedCertificate, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param serialNumber Serial number of certificate
@@ -155,8 +160,10 @@ export class X509CrlEntry extends AsnData<RevokedCertificate> {
   public constructor(serialNumber: string, revocationDate: Date, extensions: Extension[]);
   public constructor(...args: any[]) {
     let raw: ArrayBuffer | RevokedCertificate | undefined;
+    let options: ParseOptions | undefined;
     if (BufferSourceConverter.isBufferSource(args[0])) {
       raw = BufferSourceConverter.toArrayBuffer(args[0]);
+      options = args[1];
     } else if (typeof args[0] === "string") {
       raw = AsnConvert.serialize(new RevokedCertificate({
         userCertificate: generateCertificateSerialNumber(args[0]),
@@ -165,14 +172,17 @@ export class X509CrlEntry extends AsnData<RevokedCertificate> {
       }));
     } else if (args[0] instanceof RevokedCertificate) {
       raw = args[0];
+      options = args[1];
     }
 
     if (!raw) {
       throw new TypeError("Cannot create X509CrlEntry instance. Wrong constructor arguments.");
     }
 
-    // @ts-expect-error : next line is ok
-    super(raw, RevokedCertificate);
+    const superArgs = raw instanceof RevokedCertificate
+      ? [raw, options]
+      : [raw, RevokedCertificate, options];
+    super(superArgs[0] as any, superArgs[1] as any, superArgs[2] as any);
   }
 
   protected onInit(_asn: RevokedCertificate) {

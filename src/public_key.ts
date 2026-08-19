@@ -63,8 +63,9 @@ export class PublicKey extends PemData<SubjectPublicKeyInfo> {
   /**
    * Creates a new instance from ASN.1
    * @param asn ASN.1 object
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(asn: SubjectPublicKeyInfo);
+  public constructor(asn: SubjectPublicKeyInfo, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param raw Encoded buffer (DER, PEM, HEX, Base64, Base64Url)
@@ -78,7 +79,7 @@ export class PublicKey extends PemData<SubjectPublicKeyInfo> {
     if (PemData.isAsnEncoded(param)) {
       super(param, SubjectPublicKeyInfo, options);
     } else {
-      super(param);
+      super(param, options);
     }
 
     this.tag = PemConverter.PublicKeyTag;
@@ -140,7 +141,11 @@ export class PublicKey extends PemData<SubjectPublicKeyInfo> {
     switch (asn.algorithm.algorithm) {
       case id_rsaEncryption:
       {
-        const rsaPublicKey = AsnConvert.parse(asn.subjectPublicKey, RSAPublicKey);
+        const rsaPublicKey = AsnConvert.parse(
+          asn.subjectPublicKey,
+          RSAPublicKey,
+          this.parseOptions,
+        );
         const modulus = BufferSourceConverter.toUint8Array(rsaPublicKey.modulus);
         algorithm.publicExponent = BufferSourceConverter.toUint8Array(rsaPublicKey.publicExponent);
         algorithm.modulusLength = (!modulus[0] ? modulus.slice(1) : modulus).byteLength << 3;

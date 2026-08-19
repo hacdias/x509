@@ -84,7 +84,7 @@ export class X509Certificates extends Array<X509Certificate> implements TextObje
     );
     signedData.certificates = new asn1Cms.CertificateSet(
       this.map((o) => new asn1Cms.CertificateChoices(
-        { certificate: AsnConvert.parse(o.rawData, Certificate) }),
+        { certificate: AsnConvert.parse(o.rawData, Certificate, this.#options) }),
       ),
     );
 
@@ -120,7 +120,7 @@ export class X509Certificates extends Array<X509Certificate> implements TextObje
 
     for (const item of signedData.certificates || []) {
       if (item.certificate) {
-        this.push(new X509Certificate(item.certificate));
+        this.push(new X509Certificate(item.certificate, options));
       }
     }
   }

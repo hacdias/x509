@@ -54,8 +54,9 @@ export abstract class AsnData<T> implements TextObjectConvertible {
   /**
    * ASN.1 object
    * @param asn
+   * @param options ASN.1 parse options used for nested ASN.1 payloads
    */
-  public constructor(asn: T);
+  public constructor(asn: T, options?: ParseOptions);
   public constructor(...args: any[]) {
     if (BufferSourceConverter.isBufferSource(args[0])) {
       // raw, type, options?
@@ -64,7 +65,8 @@ export abstract class AsnData<T> implements TextObjectConvertible {
       this.#rawData = BufferSourceConverter.toArrayBuffer(args[0]);
       this.onInit(this.asn);
     } else {
-      // asn
+      // asn, options?
+      this.#options = args[1];
       this.asn = args[0];
       this.onInit(this.asn);
     }

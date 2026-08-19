@@ -2,6 +2,10 @@ import {
   describe, it, expect, beforeAll,
 } from "vitest";
 import { Crypto } from "@peculiar/webcrypto";
+import { AsnConvert } from "@peculiar/asn1-schema";
+import { CertificationRequest } from "@peculiar/asn1-csr";
+import { id_pkcs9_at_extensionRequest } from "@peculiar/asn1-pkcs9";
+import * as asn1X509 from "@peculiar/asn1-x509";
 import { Convert } from "pvtsutils";
 import * as x509 from "../src";
 
@@ -121,6 +125,101 @@ describe("parse options (berOptions)", () => {
       const crl = new x509.X509Crl(crlRaw, { berOptions: { maxDepth: 100 } });
       expect(typeof crl.toString("asn")).toBe("string");
       expect(typeof crl.toString("text")).toBe("string");
+    });
+  });
+
+  // Extension and attribute values are parsed lazily, long after the top level
+  // structure. Those parsers must reuse the options the object was created
+  // with, otherwise raising the limits for a large input only helps the outer
+  // structure while the nested values still fail on the asn1js defaults.
+  describe("nested values", () => {
+    const alg = {
+      name: "ECDSA", hash: "SHA-256", namedCurve: "P-256",
+    };
+    // A certificate policies value of ~12000 ASN.1 nodes, above the 10000 default
+    const policies = new Array(6000).fill(0).map((_, i) => `1.2.3.4.${i}`);
+    const berOptions = { maxNodes: 100000 };
+    const notBefore = new Date("2023-01-01T00:00:00Z");
+    const notAfter = new Date("2023-01-08T00:00:00Z");
+
+    let keys: CryptoKeyPair;
+    let largeExtension: asn1X509.Extension;
+
+    beforeAll(async () => {
+      keys = await crypto.subtle.generateKey(alg, true, ["sign", "verify"]);
+      largeExtension = AsnConvert.parse(
+        new x509.CertificatePolicyExtension(policies).rawData,
+        asn1X509.Extension,
+      );
+    });
+
+    // NOTE: the generators parse their own output with the default limits, so
+    // the structures carrying the large value are assembled from ASN.1.
+
+    it("reuses the options for certificate extension values", async () => {
+      const cert = await x509.X509CertificateGenerator.createSelfSigned({
+        serialNumber: "01",
+        name: "CN=Test",
+        notBefore,
+        notAfter,
+        signingAlgorithm: alg,
+        keys,
+      });
+      const asn = AsnConvert.parse(cert.rawData, asn1X509.Certificate);
+      asn.tbsCertificate.extensions = new asn1X509.Extensions([largeExtension]);
+      const raw = AsnConvert.serialize(asn);
+
+      expect(() => new x509.X509Certificate(raw)).toThrow(/node count/i);
+
+      const parsed = new x509.X509Certificate(raw, { berOptions });
+      const ext = parsed.getExtension(x509.CertificatePolicyExtension);
+      expect(ext?.policies).toHaveLength(policies.length);
+    });
+
+    it("reuses the options for CRL entry extension values", async () => {
+      const crl = await x509.X509CrlGenerator.create({
+        issuer: "CN=Test CA",
+        thisUpdate: notBefore,
+        nextUpdate: notAfter,
+        signingAlgorithm: alg,
+        signingKey: keys.privateKey,
+        entries: [{
+          serialNumber: "010203", revocationDate: notBefore,
+        }],
+      });
+      const asn = AsnConvert.parse(crl.rawData, asn1X509.CertificateList);
+      asn.tbsCertList.revokedCertificates![0].crlEntryExtensions = [largeExtension];
+      const raw = AsnConvert.serialize(asn);
+
+      expect(() => new x509.X509Crl(raw)).toThrow(/node count/i);
+
+      const parsed = new x509.X509Crl(raw, { berOptions });
+      const fromEntries = parsed.entries[0].extensions[0] as x509.CertificatePolicyExtension;
+      expect(fromEntries.policies).toHaveLength(policies.length);
+      const fromFindRevoked = parsed.findRevoked("010203")!
+        .extensions[0] as x509.CertificatePolicyExtension;
+      expect(fromFindRevoked.policies).toHaveLength(policies.length);
+    });
+
+    it("reuses the options for CSR attribute values", async () => {
+      const csr = await x509.Pkcs10CertificateRequestGenerator.create({
+        name: "CN=Test",
+        keys,
+        signingAlgorithm: alg,
+      });
+      const asn = AsnConvert.parse(csr.rawData, CertificationRequest);
+      asn.certificationRequestInfo.attributes.push(new asn1X509.Attribute({
+        type: id_pkcs9_at_extensionRequest,
+        values: [AsnConvert.serialize(new asn1X509.Extensions([largeExtension]))],
+      }));
+      const raw = AsnConvert.serialize(asn);
+
+      expect(() => new x509.Pkcs10CertificateRequest(raw)).toThrow(/node count/i);
+
+      const parsed = new x509.Pkcs10CertificateRequest(raw, { berOptions });
+      const ext = parsed
+        .getExtension(asn1X509.id_ce_certificatePolicies) as x509.CertificatePolicyExtension;
+      expect(ext.policies).toHaveLength(policies.length);
     });
   });
 });

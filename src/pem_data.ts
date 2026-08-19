@@ -66,13 +66,14 @@ export abstract class PemData<T> extends AsnData<T> {
   /**
    * Creates a new instance
    * @param asn ASN.1 object
+   * @param options ASN.1 parse options used for nested ASN.1 payloads
    */
-  public constructor(asn: T);
+  public constructor(asn: T, options?: ParseOptions);
   public constructor(...args: any[]) {
     if (PemData.isAsnEncoded(args[0])) {
       super(PemData.toArrayBuffer(args[0]), args[1], args[2]);
     } else {
-      super(args[0]);
+      super(args[0], args[1]);
     }
   }
 

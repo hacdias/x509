@@ -117,7 +117,10 @@ export class Pkcs10CertificateRequest extends PemData<CertificationRequest>
    */
   public get publicKey(): PublicKey {
     if (!this.#publicKey) {
-      this.#publicKey = new PublicKey(this.asn.certificationRequestInfo.subjectPKInfo);
+      this.#publicKey = new PublicKey(
+        this.asn.certificationRequestInfo.subjectPKInfo,
+        this.parseOptions,
+      );
     }
 
     return this.#publicKey;
@@ -129,7 +132,7 @@ export class Pkcs10CertificateRequest extends PemData<CertificationRequest>
   public get attributes(): Attribute[] {
     if (!this.#attributes) {
       this.#attributes = this.asn.certificationRequestInfo.attributes
-        .map((o) => AttributeFactory.create(AsnConvert.serialize(o)));
+        .map((o) => AttributeFactory.create(AsnConvert.serialize(o), this.parseOptions));
     }
 
     return this.#attributes;
@@ -171,10 +174,13 @@ export class Pkcs10CertificateRequest extends PemData<CertificationRequest>
   /**
    * Creates a new instance from ASN.1 CertificationRequest
    * @param asn ASN.1 CertificationRequest
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(asn: CertificationRequest);
+  public constructor(asn: CertificationRequest, options?: ParseOptions);
   public constructor(param: AsnEncodedType | CertificationRequest, options?: ParseOptions) {
-    const args = PemData.isAsnEncoded(param) ? [param, CertificationRequest, options] : [param];
+    const args = PemData.isAsnEncoded(param)
+      ? [param, CertificationRequest, options]
+      : [param, options];
     super(args[0] as any, args[1] as any, args[2] as any);
     this.tag = PemConverter.CertificateRequestTag;
   }

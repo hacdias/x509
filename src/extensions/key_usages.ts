@@ -3,6 +3,7 @@ import { id_ce_keyUsage, KeyUsage } from "@peculiar/asn1-x509";
 import { BufferSourceConverter } from "pvtsutils";
 import { Extension } from "../extension";
 import { TextObject } from "../text_converter";
+import { ParseOptions } from "../types";
 
 /**
  * X509 key usages flags
@@ -33,8 +34,9 @@ export class KeyUsagesExtension extends Extension {
   /**
    * Creates a new instance from DER encoded buffer
    * @param raw DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(raw: BufferSource);
+  public constructor(raw: BufferSource, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param usages
@@ -43,9 +45,9 @@ export class KeyUsagesExtension extends Extension {
   public constructor(usages: KeyUsageFlags, critical?: boolean);
   public constructor(...args: any[]) {
     if (BufferSourceConverter.isBufferSource(args[0])) {
-      super(args[0] as BufferSource);
+      super(args[0] as BufferSource, args[1] as ParseOptions | undefined);
 
-      const value = AsnConvert.parse(this.value, KeyUsage);
+      const value = AsnConvert.parse(this.value, KeyUsage, this.parseOptions);
       this.usages = value.toNumber();
     } else {
       const value = new KeyUsage(args[0]);
@@ -58,7 +60,7 @@ export class KeyUsagesExtension extends Extension {
   public override toTextObject(): TextObject {
     const obj = this.toTextObjectWithoutValue();
 
-    const asn = AsnConvert.parse(this.value, KeyUsage);
+    const asn = AsnConvert.parse(this.value, KeyUsage, this.parseOptions);
 
     obj[""] = asn.toJSON().join(", ");
 

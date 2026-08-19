@@ -6,6 +6,7 @@ import { GeneralNames } from "../general_name";
 import { cryptoProvider } from "../provider";
 import { PublicKey, PublicKeyType } from "../public_key";
 import { TextObject } from "../text_converter";
+import { ParseOptions } from "../types";
 
 export interface CertificateIdentifier {
   /**
@@ -73,8 +74,9 @@ export class AuthorityKeyIdentifierExtension extends Extension {
   /**
    * Creates a new instance from DER encoded buffer
    * @param raw DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(raw: BufferSource);
+  public constructor(raw: BufferSource, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param identifier Hexadecimal representation of key identifier
@@ -89,7 +91,7 @@ export class AuthorityKeyIdentifierExtension extends Extension {
   public constructor(id: CertificateIdentifier, critical?: boolean);
   public constructor(...args: any[]) {
     if (BufferSourceConverter.isBufferSource(args[0])) {
-      super(args[0] as BufferSource);
+      super(args[0] as BufferSource, args[1] as ParseOptions | undefined);
     } else if (typeof args[0] === "string") {
       const value = new asn1X509.AuthorityKeyIdentifier(
         { keyIdentifier: new asn1X509.KeyIdentifier(Convert.FromHex(args[0])) },
@@ -111,7 +113,11 @@ export class AuthorityKeyIdentifierExtension extends Extension {
   protected onInit(asn: asn1X509.Extension) {
     super.onInit(asn);
 
-    const aki = AsnConvert.parse(asn.extnValue, asn1X509.AuthorityKeyIdentifier);
+    const aki = AsnConvert.parse(
+      asn.extnValue,
+      asn1X509.AuthorityKeyIdentifier,
+      this.parseOptions,
+    );
     if (aki.keyIdentifier) {
       this.keyId = Convert.ToHex(aki.keyIdentifier);
     }
@@ -127,7 +133,7 @@ export class AuthorityKeyIdentifierExtension extends Extension {
   public override toTextObject(): TextObject {
     const obj = this.toTextObjectWithoutValue();
 
-    const asn = AsnConvert.parse(this.value, asn1X509.AuthorityKeyIdentifier);
+    const asn = AsnConvert.parse(this.value, asn1X509.AuthorityKeyIdentifier, this.parseOptions);
 
     if (asn.authorityCertIssuer) {
       obj["Authority Issuer"] = new GeneralNames(asn.authorityCertIssuer).toTextObject();

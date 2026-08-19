@@ -4,6 +4,7 @@ import * as asnPkcs9 from "@peculiar/asn1-pkcs9";
 import { BufferSourceConverter } from "pvtsutils";
 import { Attribute } from "../attribute";
 import { TextObject } from "../text_converter";
+import { ParseOptions } from "../types";
 
 export class ChallengePasswordAttribute extends Attribute {
   public static override NAME = "Challenge Password";
@@ -13,8 +14,9 @@ export class ChallengePasswordAttribute extends Attribute {
   /**
    * Creates a new instance from DER encoded buffer
    * @param raw DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(raw: BufferSource);
+  public constructor(raw: BufferSource, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param value
@@ -22,7 +24,7 @@ export class ChallengePasswordAttribute extends Attribute {
   public constructor(value: string);
   public constructor(...args: any[]) {
     if (BufferSourceConverter.isBufferSource(args[0])) {
-      super(args[0] as BufferSource);
+      super(args[0] as BufferSource, args[1] as ParseOptions | undefined);
     } else {
       const value = new asnPkcs9.ChallengePassword({ printableString: args[0] });
       super(asnPkcs9.id_pkcs9_at_challengePassword, [AsnConvert.serialize(value)]);
@@ -35,7 +37,11 @@ export class ChallengePasswordAttribute extends Attribute {
     super.onInit(asn);
 
     if (this.values[0]) {
-      const value = AsnConvert.parse(this.values[0], asnPkcs9.ChallengePassword);
+      const value = AsnConvert.parse(
+        this.values[0],
+        asnPkcs9.ChallengePassword,
+        this.parseOptions,
+      );
       this.password = value.toString();
     }
   }

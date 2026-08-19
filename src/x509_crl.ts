@@ -147,7 +147,7 @@ export class X509Crl extends PemData<CertificateList> {
   public get entries(): readonly X509CrlEntry[] {
     if (!this.#entries) {
       this.#entries = this.asn.tbsCertList
-        .revokedCertificates?.map((o) => new X509CrlEntry(o)) || [];
+        .revokedCertificates?.map((o) => new X509CrlEntry(o, this.parseOptions)) || [];
     }
 
     return this.#entries;
@@ -161,7 +161,7 @@ export class X509Crl extends PemData<CertificateList> {
       this.#extensions = [];
       if (this.asn.tbsCertList.crlExtensions) {
         this.#extensions = this.asn.tbsCertList.crlExtensions.map((o) =>
-          ExtensionFactory.create(AsnConvert.serialize(o)),
+          ExtensionFactory.create(AsnConvert.serialize(o), this.parseOptions),
         );
       }
     }
@@ -197,8 +197,9 @@ export class X509Crl extends PemData<CertificateList> {
   /**
    * Creates a new instance from ASN.1 CertificateList object
    * @param asn ASN.1 CertificateList object
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(asn: CertificateList);
+  public constructor(asn: CertificateList, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param raw Encoded buffer (DER, PEM, HEX, Base64, Base64Url)
@@ -206,8 +207,10 @@ export class X509Crl extends PemData<CertificateList> {
    */
   public constructor(raw: AsnEncodedType, options?: ParseOptions);
   public constructor(param: AsnEncodedType | CertificateList, options?: ParseOptions) {
-    // @ts-expect-error: super call with private fields
-    super(param, PemData.isAsnEncoded(param) ? CertificateList : undefined, options);
+    const args = PemData.isAsnEncoded(param)
+      ? [param, CertificateList, options]
+      : [param, options];
+    super(args[0] as any, args[1] as any, args[2] as any);
   }
 
   protected onInit(_asn: CertificateList) {
@@ -386,7 +389,7 @@ export class X509Crl extends PemData<CertificateList> {
     const serialBuffer = generateCertificateSerialNumber(serialNumber, crypto);
     for (const revoked of this.asn.tbsCertList.revokedCertificates || []) {
       if (BufferSourceConverter.isEqual(revoked.userCertificate, serialBuffer)) {
-        return new X509CrlEntry(AsnConvert.serialize(revoked));
+        return new X509CrlEntry(AsnConvert.serialize(revoked), this.parseOptions);
       }
     }
 

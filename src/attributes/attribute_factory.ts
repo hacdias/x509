@@ -1,4 +1,5 @@
 import { Attribute } from "../attribute";
+import { ParseOptions } from "../types";
 
 /**
  * Static class to manage X509 attributes
@@ -23,17 +24,18 @@ export class AttributeFactory {
   /**
    * Returns X509 Attribute based on it's identifier
    * @param data DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    *
    * @example
    * ```js
    * const attr = AttributeFactory.create(asnAttrRaw);
    * ```
    */
-  public static create(data: BufferSource) {
-    const attribute = new Attribute(data);
+  public static create(data: BufferSource, options?: ParseOptions) {
+    const attribute = new Attribute(data, options);
     const Type = this.items.get(attribute.type);
     if (Type) {
-      return new Type(data);
+      return new Type(data, options);
     }
 
     return attribute;

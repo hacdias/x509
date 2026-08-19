@@ -4,6 +4,7 @@ import { BufferSourceConverter } from "pvtsutils";
 import { Extension } from "../extension";
 import { GeneralNames, JsonGeneralNames } from "../general_name";
 import { TextObject } from "../text_converter";
+import { ParseOptions } from "../types";
 
 /**
  * Represents the Subject Alternative Name certificate extension
@@ -16,8 +17,9 @@ export class SubjectAlternativeNameExtension extends Extension {
   /**
    * Creates a new instance from DER encoded buffer
    * @param raw DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(raw: BufferSource);
+  public constructor(raw: BufferSource, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param data JSON representation of SAN
@@ -26,7 +28,7 @@ export class SubjectAlternativeNameExtension extends Extension {
   public constructor(data?: JsonGeneralNames, critical?: boolean);
   public constructor(...args: any[]) {
     if (BufferSourceConverter.isBufferSource(args[0])) {
-      super(args[0] as BufferSource);
+      super(args[0] as BufferSource, args[1] as ParseOptions | undefined);
     } else {
       super(asn1X509.id_ce_subjectAltName, args[1], new GeneralNames(args[0] || []).rawData);
     }
@@ -36,7 +38,11 @@ export class SubjectAlternativeNameExtension extends Extension {
     super.onInit(asn);
 
     // value
-    const value = AsnConvert.parse(asn.extnValue, asn1X509.SubjectAlternativeName);
+    const value = AsnConvert.parse(
+      asn.extnValue,
+      asn1X509.SubjectAlternativeName,
+      this.parseOptions,
+    );
 
     this.names = new GeneralNames(value);
   }

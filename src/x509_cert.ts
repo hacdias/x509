@@ -98,7 +98,10 @@ export class X509Certificate extends PemData<Certificate> implements IPublicKeyC
    */
   public get publicKey(): PublicKey {
     if (!this.#publicKey) {
-      this.#publicKey = new PublicKey(this.asn.tbsCertificate.subjectPublicKeyInfo);
+      this.#publicKey = new PublicKey(
+        this.asn.tbsCertificate.subjectPublicKeyInfo,
+        this.parseOptions,
+      );
     }
 
     return this.#publicKey;
@@ -232,7 +235,7 @@ export class X509Certificate extends PemData<Certificate> implements IPublicKeyC
       this.#extensions = [];
       if (this.asn.tbsCertificate.extensions) {
         this.#extensions = this.asn.tbsCertificate.extensions.map((o) => (
-          ExtensionFactory.create(AsnConvert.serialize(o))
+          ExtensionFactory.create(AsnConvert.serialize(o), this.parseOptions)
         ));
       }
     }
@@ -259,8 +262,9 @@ export class X509Certificate extends PemData<Certificate> implements IPublicKeyC
   /**
    * Creates a new instance from ASN.1 Certificate object
    * @param asn ASN.1 Certificate object
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(asn: Certificate);
+  public constructor(asn: Certificate, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param raw Encoded buffer (DER, PEM, HEX, Base64, Base64Url)
@@ -268,7 +272,9 @@ export class X509Certificate extends PemData<Certificate> implements IPublicKeyC
    */
   public constructor(raw: AsnEncodedType, options?: ParseOptions);
   public constructor(param: AsnEncodedType | Certificate, options?: ParseOptions) {
-    const args = PemData.isAsnEncoded(param) ? [param, Certificate, options] : [param];
+    const args = PemData.isAsnEncoded(param)
+      ? [param, Certificate, options]
+      : [param, options];
     super(args[0] as any, args[1] as any, args[2] as any);
 
     this.tag = PemConverter.CertificateTag;

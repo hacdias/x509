@@ -6,6 +6,7 @@ import { Attribute } from "../attribute";
 import { Extension } from "../extension";
 import { ExtensionFactory } from "../extensions";
 import { TextObject } from "../text_converter";
+import { ParseOptions } from "../types";
 
 export class ExtensionsAttribute extends Attribute {
   public static override NAME = "Extensions";
@@ -15,8 +16,9 @@ export class ExtensionsAttribute extends Attribute {
   /**
    * Creates a new instance from DER encoded buffer
    * @param raw DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(raw: BufferSource);
+  public constructor(raw: BufferSource, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param extensions
@@ -24,7 +26,7 @@ export class ExtensionsAttribute extends Attribute {
   public constructor(extensions: Extension[]);
   public constructor(...args: any[]) {
     if (BufferSourceConverter.isBufferSource(args[0])) {
-      super(args[0] as BufferSource);
+      super(args[0] as BufferSource, args[1] as ParseOptions | undefined);
     } else {
       const extensions = args[0] as Extension[];
       const value = new asnX509.Extensions();
@@ -41,8 +43,10 @@ export class ExtensionsAttribute extends Attribute {
     super.onInit(asn);
 
     if (this.values[0]) {
-      const value = AsnConvert.parse(this.values[0], asnX509.Extensions);
-      this.items = value.map((o) => ExtensionFactory.create(AsnConvert.serialize(o)));
+      const value = AsnConvert.parse(this.values[0], asnX509.Extensions, this.parseOptions);
+      this.items = value.map((o) => (
+        ExtensionFactory.create(AsnConvert.serialize(o), this.parseOptions)
+      ));
     }
   }
 
