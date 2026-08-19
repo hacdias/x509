@@ -11,6 +11,7 @@ import { PemConverter } from "./pem_converter";
 import { AsnEncodedType, PemData } from "./pem_data";
 import { CryptoProvider, cryptoProvider } from "./provider";
 import { TextConverter, TextObject } from "./text_converter";
+import { ParseOptions } from "./types";
 
 export interface IPublicKeyContainer {
   publicKey: PublicKey;
@@ -62,18 +63,23 @@ export class PublicKey extends PemData<SubjectPublicKeyInfo> {
   /**
    * Creates a new instance from ASN.1
    * @param asn ASN.1 object
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(asn: SubjectPublicKeyInfo);
+  public constructor(asn: SubjectPublicKeyInfo, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param raw Encoded buffer (DER, PEM, HEX, Base64, Base64Url)
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(raw: AsnEncodedType);
-  public constructor(param: AsnEncodedType | SubjectPublicKeyInfo) {
+  public constructor(raw: AsnEncodedType, options?: ParseOptions);
+  public constructor(
+    param: AsnEncodedType | SubjectPublicKeyInfo,
+    options?: ParseOptions,
+  ) {
     if (PemData.isAsnEncoded(param)) {
-      super(param, SubjectPublicKeyInfo);
+      super(param, SubjectPublicKeyInfo, options);
     } else {
-      super(param);
+      super(param, options);
     }
 
     this.tag = PemConverter.PublicKeyTag;
@@ -118,7 +124,7 @@ export class PublicKey extends PemData<SubjectPublicKeyInfo> {
     crypto ??= cryptoProvider.get();
 
     let raw = this.rawData;
-    const asnSpki = AsnConvert.parse(this.rawData, SubjectPublicKeyInfo);
+    const asnSpki = AsnConvert.parse(this.rawData, SubjectPublicKeyInfo, this.parseOptions);
     if (asnSpki.algorithm.algorithm === id_RSASSA_PSS) {
       // WebCrypto in browsers does not support RSA-PSS algorithm for public keys
       // So, we need to convert it to RSA-PKCS1
@@ -135,7 +141,11 @@ export class PublicKey extends PemData<SubjectPublicKeyInfo> {
     switch (asn.algorithm.algorithm) {
       case id_rsaEncryption:
       {
-        const rsaPublicKey = AsnConvert.parse(asn.subjectPublicKey, RSAPublicKey);
+        const rsaPublicKey = AsnConvert.parse(
+          asn.subjectPublicKey,
+          RSAPublicKey,
+          this.parseOptions,
+        );
         const modulus = BufferSourceConverter.toUint8Array(rsaPublicKey.modulus);
         algorithm.publicExponent = BufferSourceConverter.toUint8Array(rsaPublicKey.publicExponent);
         algorithm.modulusLength = (!modulus[0] ? modulus.slice(1) : modulus).byteLength << 3;
@@ -213,7 +223,7 @@ export class PublicKey extends PemData<SubjectPublicKeyInfo> {
     // value of the BIT STRING subjectPublicKey (excluding the tag,
     // length, and number of unused bits).
 
-    const asn = AsnConvert.parse(this.rawData, SubjectPublicKeyInfo);
+    const asn = AsnConvert.parse(this.rawData, SubjectPublicKeyInfo, this.parseOptions);
 
     return await crypto.subtle.digest(algorithm, asn.subjectPublicKey);
   }
@@ -221,7 +231,7 @@ export class PublicKey extends PemData<SubjectPublicKeyInfo> {
   public override toTextObject(): TextObject {
     const obj = this.toTextObjectEmpty();
 
-    const asn = AsnConvert.parse(this.rawData, SubjectPublicKeyInfo);
+    const asn = AsnConvert.parse(this.rawData, SubjectPublicKeyInfo, this.parseOptions);
 
     obj["Algorithm"] = TextConverter.serializeAlgorithm(asn.algorithm);
 

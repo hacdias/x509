@@ -5,7 +5,7 @@ import { container } from "tsyringe";
 import { Version } from "@peculiar/asn1-x509";
 import { Name } from "./name";
 import { cryptoProvider } from "./provider";
-import { HashedAlgorithm } from "./types";
+import { HashedAlgorithm, ParseOptions } from "./types";
 import { Attribute } from "./attribute";
 import { Extension } from "./extension";
 import { IPublicKeyContainer, PublicKey } from "./public_key";
@@ -117,7 +117,10 @@ export class Pkcs10CertificateRequest extends PemData<CertificationRequest>
    */
   public get publicKey(): PublicKey {
     if (!this.#publicKey) {
-      this.#publicKey = new PublicKey(this.asn.certificationRequestInfo.subjectPKInfo);
+      this.#publicKey = new PublicKey(
+        this.asn.certificationRequestInfo.subjectPKInfo,
+        this.parseOptions,
+      );
     }
 
     return this.#publicKey;
@@ -129,7 +132,7 @@ export class Pkcs10CertificateRequest extends PemData<CertificationRequest>
   public get attributes(): Attribute[] {
     if (!this.#attributes) {
       this.#attributes = this.asn.certificationRequestInfo.attributes
-        .map((o) => AttributeFactory.create(AsnConvert.serialize(o)));
+        .map((o) => AttributeFactory.create(AsnConvert.serialize(o), this.parseOptions));
     }
 
     return this.#attributes;
@@ -165,16 +168,20 @@ export class Pkcs10CertificateRequest extends PemData<CertificationRequest>
   /**
    * Creates a new instance fromDER encoded buffer
    * @param raw DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(raw: AsnEncodedType);
+  public constructor(raw: AsnEncodedType, options?: ParseOptions);
   /**
    * Creates a new instance from ASN.1 CertificationRequest
    * @param asn ASN.1 CertificationRequest
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(asn: CertificationRequest);
-  public constructor(param: AsnEncodedType | CertificationRequest) {
-    const args = PemData.isAsnEncoded(param) ? [param, CertificationRequest] : [param];
-    super(args[0] as any, args[1] as any);
+  public constructor(asn: CertificationRequest, options?: ParseOptions);
+  public constructor(param: AsnEncodedType | CertificationRequest, options?: ParseOptions) {
+    const args = PemData.isAsnEncoded(param)
+      ? [param, CertificationRequest, options]
+      : [param, options];
+    super(args[0] as any, args[1] as any, args[2] as any);
     this.tag = PemConverter.CertificateRequestTag;
   }
 
@@ -261,7 +268,7 @@ export class Pkcs10CertificateRequest extends PemData<CertificationRequest>
   public override toTextObject(): TextObject {
     const obj = this.toTextObjectEmpty();
 
-    const req = AsnConvert.parse(this.rawData, CertificationRequest);
+    const req = AsnConvert.parse(this.rawData, CertificationRequest, this.parseOptions);
 
     const tbs = req.certificationRequestInfo;
     const data = new TextObject("", {

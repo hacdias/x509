@@ -3,6 +3,7 @@ import { BasicConstraints as AsnBasicConstraints, id_ce_basicConstraints } from 
 import { BufferSourceConverter } from "pvtsutils";
 import { Extension } from "../extension";
 import { TextObject } from "../text_converter";
+import { ParseOptions } from "../types";
 
 /**
  * Represents the Basic Constraints certificate extension
@@ -25,8 +26,9 @@ export class BasicConstraintsExtension extends Extension {
   /**
    * Creates a new instance from DER encoded buffer
    * @param raw DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(raw: BufferSource);
+  public constructor(raw: BufferSource, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param ca
@@ -36,9 +38,9 @@ export class BasicConstraintsExtension extends Extension {
   public constructor(ca: boolean, pathLength?: number, critical?: boolean);
   public constructor(...args: any[]) {
     if (BufferSourceConverter.isBufferSource(args[0])) {
-      super(args[0] as BufferSource);
+      super(args[0] as BufferSource, args[1] as ParseOptions | undefined);
 
-      const value = AsnConvert.parse(this.value, AsnBasicConstraints);
+      const value = AsnConvert.parse(this.value, AsnBasicConstraints, this.parseOptions);
       this.ca = value.cA;
       this.pathLength = value.pathLenConstraint;
     } else {

@@ -3,6 +3,7 @@ import { AsnConvert } from "@peculiar/asn1-schema";
 import { BufferSourceConverter } from "pvtsutils";
 import { Extension } from "../extension";
 import { OidSerializer, TextObject } from "../text_converter";
+import { ParseOptions } from "../types";
 import { ExtensionFactory } from "./extension_factory";
 
 /**
@@ -19,8 +20,9 @@ export class CertificatePolicyExtension extends Extension {
   /**
    * Creates a new instance from DER encoded buffer
    * @param raw DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  constructor(raw: BufferSource);
+  constructor(raw: BufferSource, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param policies
@@ -29,9 +31,13 @@ export class CertificatePolicyExtension extends Extension {
   constructor(policies: string[], critical?: boolean);
   constructor(...args: any[]) {
     if (BufferSourceConverter.isBufferSource(args[0])) {
-      super(args[0] as BufferSource);
+      super(args[0] as BufferSource, args[1] as ParseOptions | undefined);
 
-      const asnPolicies = AsnConvert.parse(this.value, asnX509.CertificatePolicies);
+      const asnPolicies = AsnConvert.parse(
+        this.value,
+        asnX509.CertificatePolicies,
+        this.parseOptions,
+      );
       this.policies = asnPolicies.map((o) => o.policyIdentifier);
     } else {
       const policies = args[0] as string[];

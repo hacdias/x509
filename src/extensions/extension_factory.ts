@@ -1,4 +1,5 @@
 import { Extension } from "../extension";
+import { ParseOptions } from "../types";
 
 /**
  * Static class to manage X509 extensions
@@ -26,17 +27,18 @@ export class ExtensionFactory {
   /**
    * Returns X509 Extension based on it's identifier
    * @param data DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    *
    * @example
    * ```js
    * const ext = ExtensionFactory.create(asnExtRaw);
    * ```
    */
-  public static create(data: BufferSource) {
-    const extension = new Extension(data);
+  public static create(data: BufferSource, options?: ParseOptions) {
+    const extension = new Extension(data, options);
     const Type = this.items.get(extension.type);
     if (Type) {
-      return new Type(data);
+      return new Type(data, options);
     }
 
     return extension;

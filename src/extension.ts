@@ -3,6 +3,7 @@ import { Extension as AsnExtension } from "@peculiar/asn1-x509";
 import { BufferSourceConverter } from "pvtsutils";
 import { AsnData } from "./asn_data";
 import { OidSerializer, TextObject } from "./text_converter";
+import { ParseOptions } from "./types";
 
 /**
  * Represents the certificate extension
@@ -25,8 +26,9 @@ export class Extension extends AsnData<AsnExtension> {
   /**
    * Creates a new instance from DER encoded Buffer
    * @param raw DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(raw: BufferSource);
+  public constructor(raw: BufferSource, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param type Extension identifier
@@ -36,8 +38,10 @@ export class Extension extends AsnData<AsnExtension> {
   public constructor(type: string, critical: boolean, value: BufferSource);
   public constructor(...args: any[]) {
     let raw: ArrayBuffer;
+    let options: ParseOptions | undefined;
     if (BufferSourceConverter.isBufferSource(args[0])) {
       raw = BufferSourceConverter.toArrayBuffer(args[0]);
+      options = args[1];
     } else {
       raw = AsnConvert.serialize(new AsnExtension({
         extnID: args[0],
@@ -46,7 +50,7 @@ export class Extension extends AsnData<AsnExtension> {
       }));
     }
 
-    super(raw, AsnExtension);
+    super(raw, AsnExtension, options);
   }
 
   protected onInit(asn: AsnExtension) {

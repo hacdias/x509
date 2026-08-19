@@ -5,6 +5,7 @@ import { Extension } from "../extension";
 import { cryptoProvider } from "../provider";
 import { PublicKey, PublicKeyType } from "../public_key";
 import { TextObject } from "../text_converter";
+import { ParseOptions } from "../types";
 
 /**
  * Represents the Subject Key Identifier certificate extension
@@ -37,8 +38,9 @@ export class SubjectKeyIdentifierExtension extends Extension {
   /**
    * Creates a new instance from DER encoded buffer
    * @param raw DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(raw: BufferSource);
+  public constructor(raw: BufferSource, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param keyId Hexadecimal representation of key identifier
@@ -47,9 +49,9 @@ export class SubjectKeyIdentifierExtension extends Extension {
   public constructor(keyId: string, critical?: boolean);
   public constructor(...args: any[]) {
     if (BufferSourceConverter.isBufferSource(args[0])) {
-      super(args[0] as BufferSource);
+      super(args[0] as BufferSource, args[1] as ParseOptions | undefined);
 
-      const value = AsnConvert.parse(this.value, asn1X509.SubjectKeyIdentifier);
+      const value = AsnConvert.parse(this.value, asn1X509.SubjectKeyIdentifier, this.parseOptions);
       this.keyId = Convert.ToHex(value);
     } else {
       const identifier = typeof args[0] === "string"
@@ -65,7 +67,7 @@ export class SubjectKeyIdentifierExtension extends Extension {
   public override toTextObject(): TextObject {
     const obj = this.toTextObjectWithoutValue();
 
-    const asn = AsnConvert.parse(this.value, asn1X509.SubjectKeyIdentifier);
+    const asn = AsnConvert.parse(this.value, asn1X509.SubjectKeyIdentifier, this.parseOptions);
 
     obj[""] = asn;
 

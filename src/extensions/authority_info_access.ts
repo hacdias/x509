@@ -4,6 +4,7 @@ import { BufferSourceConverter } from "pvtsutils";
 import { Extension } from "../extension";
 import { TextObject } from "../text_converter";
 import { GeneralName } from "../general_name";
+import { ParseOptions } from "../types";
 
 export type AccessItemTypes = GeneralName | GeneralName[] | string | string[];
 export interface AuthorityInfoAccessParams {
@@ -27,8 +28,9 @@ export class AuthorityInfoAccessExtension extends Extension {
   /**
    * Creates a new instance from DER encoded buffer
    * @param raw DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(raw: BufferSource);
+  public constructor(raw: BufferSource, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param value The value of the extension
@@ -43,7 +45,7 @@ export class AuthorityInfoAccessExtension extends Extension {
   public constructor(params: AuthorityInfoAccessParams, critical?: boolean);
   public constructor(...args: any[]) {
     if (BufferSourceConverter.isBufferSource(args[0])) {
-      super(args[0] as BufferSource);
+      super(args[0] as BufferSource, args[1] as ParseOptions | undefined);
     } else if (args[0] instanceof asn1X509.AuthorityInfoAccessSyntax) {
       const value = new asn1X509.AuthorityInfoAccessSyntax(args[0]);
       super(asn1X509.id_pe_authorityInfoAccess, args[1], AsnConvert.serialize(value));
@@ -73,7 +75,11 @@ export class AuthorityInfoAccessExtension extends Extension {
     this.timeStamping = [];
     this.caRepository = [];
 
-    const aia = AsnConvert.parse(asn.extnValue, asn1X509.AuthorityInfoAccessSyntax);
+    const aia = AsnConvert.parse(
+      asn.extnValue,
+      asn1X509.AuthorityInfoAccessSyntax,
+      this.parseOptions,
+    );
     aia.forEach((accessDescription) => {
       switch (accessDescription.accessMethod) {
         case asn1X509.id_ad_ocsp:

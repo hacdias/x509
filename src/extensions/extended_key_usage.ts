@@ -3,6 +3,7 @@ import { AsnConvert } from "@peculiar/asn1-schema";
 import { BufferSourceConverter } from "pvtsutils";
 import { Extension } from "../extension";
 import { OidSerializer, TextObject } from "../text_converter";
+import { ParseOptions } from "../types";
 
 export enum ExtendedKeyUsage {
   serverAuth = "1.3.6.1.5.5.7.3.1",
@@ -28,8 +29,9 @@ export class ExtendedKeyUsageExtension extends Extension {
   /**
    * Creates a new instance from DER encoded buffer
    * @param raw DER encoded buffer
+   * @param options Optional ASN.1 parse options (e.g. `asn1js.fromBER` resource limits)
    */
-  public constructor(raw: BufferSource);
+  public constructor(raw: BufferSource, options?: ParseOptions);
   /**
    * Creates a new instance
    * @param usages
@@ -38,9 +40,9 @@ export class ExtendedKeyUsageExtension extends Extension {
   public constructor(usages: ExtendedKeyUsageType[], critical?: boolean);
   public constructor(...args: any[]) {
     if (BufferSourceConverter.isBufferSource(args[0])) {
-      super(args[0] as BufferSource);
+      super(args[0] as BufferSource, args[1] as ParseOptions | undefined);
 
-      const value = AsnConvert.parse(this.value, asn1X509.ExtendedKeyUsage);
+      const value = AsnConvert.parse(this.value, asn1X509.ExtendedKeyUsage, this.parseOptions);
       this.usages = value.map((o) => o);
     } else {
       const value = new asn1X509.ExtendedKeyUsage(args[0]);
