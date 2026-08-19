@@ -2,7 +2,8 @@ import {
   describe, it, expect, beforeAll,
 } from "vitest";
 import { Crypto } from "@peculiar/webcrypto";
-import { Convert } from "pvtsutils";
+import { AsnConvert } from "@peculiar/asn1-schema";
+import { CertificateList } from "@peculiar/asn1-x509";
 import * as x509 from "../src";
 
 const crypto = new Crypto();
@@ -206,7 +207,7 @@ describe("X509CrlGenerator", () => {
   });
 
   // First byte 0xf6 has the high bit set; without sign-padding this would be
-  // encoded as a negative DER INTEGER (RFC 5280 §5.3.1 violation).
+  // encoded as a negative DER INTEGER (RFC 5280 §4.1.2.2 violation).
   const highBitSerial = "f6f3c85e97e433070c51e0527b20b7f4";
 
   it("should encode a high-bit-set serial number as a positive INTEGER", async () => {
@@ -221,14 +222,15 @@ describe("X509CrlGenerator", () => {
       }],
     });
 
-    // Re-parse from DER to assert the encoded bytes, not the in-memory object.
-    const parsed = new x509.X509Crl(crl.rawData);
-    const encoded = new Uint8Array(Convert.FromHex(parsed.entries[0].serialNumber));
-    expect(encoded[0]).toBe(0x00); // leading sign-pad byte => positive INTEGER
-    expect(parsed.entries[0].serialNumber).toBe(`00${highBitSerial}`);
+    // Inspect the raw DER INTEGER content octets directly: the getter strips
+    // the sign-pad, so assert on the encoding rather than on serialNumber.
+    const asn = AsnConvert.parse(crl.rawData, CertificateList);
+    const revoked = asn.tbsCertList.revokedCertificates ?? [];
+    const userCertificate = new Uint8Array(revoked[0].userCertificate);
+    expect(userCertificate[0]).toBe(0x00); // leading sign-pad byte => positive INTEGER
   });
 
-  it("should find a revoked high-bit-set serial number via findRevoked", async () => {
+  it("should expose the serial number consistently with X509Certificate", async () => {
     const crl = await x509.X509CrlGenerator.create({
       issuer: "CN=Test CA",
       thisUpdate: new Date(),
@@ -240,9 +242,57 @@ describe("X509CrlGenerator", () => {
       }],
     });
 
+    const cert = await x509.X509CertificateGenerator.createSelfSigned({
+      serialNumber: highBitSerial,
+      name: "CN=Test CA",
+      notBefore: new Date("2020-01-01"),
+      notAfter: new Date("2060-01-01"),
+      signingAlgorithm: alg,
+      keys,
+    });
+
     const parsed = new x509.X509Crl(crl.rawData);
     const entry = parsed.findRevoked(highBitSerial);
     expect(entry).not.toBeNull();
-    expect(entry?.serialNumber).toBe(`00${highBitSerial}`);
+    // The CRL entry getter strips the sign-pad, matching X509Certificate.
+    expect(entry?.serialNumber).toBe(highBitSerial);
+    expect(entry?.serialNumber).toBe(cert.serialNumber);
+  });
+
+  it.each(["00", "0000"])("should keep a zero serial number %s as given", async (serialNumber) => {
+    const crl = await x509.X509CrlGenerator.create({
+      issuer: "CN=Test CA",
+      thisUpdate: new Date(),
+      nextUpdate: new Date(),
+      signingAlgorithm: alg,
+      signingKey: keys.privateKey,
+      entries: [{
+        serialNumber, revocationDate: new Date(),
+      }],
+    });
+
+    // The serial number must be normalized, not replaced by a random one.
+    const parsed = new x509.X509Crl(crl.rawData);
+    expect(parsed.entries.length).toBe(1);
+    expect(parsed.entries[0].serialNumber).toBe("00");
+    expect(parsed.findRevoked(serialNumber)?.serialNumber).toBe("00");
+  });
+
+  it("should throw if duplicate entries with zero serial numbers", async () => {
+    await expect(x509.X509CrlGenerator.create({
+      issuer: "CN=Test CA",
+      thisUpdate: new Date(),
+      nextUpdate: new Date(),
+      signingAlgorithm: alg,
+      signingKey: keys.privateKey,
+      entries: [
+        {
+          serialNumber: "00", revocationDate: new Date(),
+        },
+        {
+          serialNumber: "0000", revocationDate: new Date(),
+        },
+      ],
+    })).rejects.toThrow("already exists");
   });
 });
