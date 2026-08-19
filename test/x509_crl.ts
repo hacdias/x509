@@ -259,7 +259,7 @@ describe("X509CrlGenerator", () => {
     expect(entry?.serialNumber).toBe(cert.serialNumber);
   });
 
-  it.each(["00", "0000"])("should keep a zero serial number %s as given", async (serialNumber) => {
+  it.each(["", "00", "0000"])("should keep the zero serial number %j as given", async (serialNumber) => {
     const crl = await x509.X509CrlGenerator.create({
       issuer: "CN=Test CA",
       thisUpdate: new Date(),
@@ -294,5 +294,18 @@ describe("X509CrlGenerator", () => {
         },
       ],
     })).rejects.toThrow("already exists");
+  });
+});
+
+describe("X509CrlEntry", () => {
+  it("should normalize the serial number", () => {
+    // High bit set, so the serial number gets a sign-pad byte on encoding, and
+    // the getter strips it again.
+    const entry = new x509.X509CrlEntry("f6f3c8", new Date(), []);
+    expect(entry.serialNumber).toBe("f6f3c8");
+
+    // Zero serial numbers must be normalized, not replaced by a random one.
+    const zeroEntry = new x509.X509CrlEntry("0000", new Date(), []);
+    expect(zeroEntry.serialNumber).toBe("00");
   });
 });
